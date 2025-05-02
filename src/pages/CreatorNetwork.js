@@ -50,14 +50,19 @@ import {
   Business as BusinessIcon,
   LocationOn as LocationIcon,
   Language as LanguageIcon,
+  Facebook as FacebookIcon,
+  TikTok as TikTokIcon,
+  Favorite as FavoriteIcon,
+  LiveTv as LiveTvIcon,
 } from '@mui/icons-material';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 function CreatorNetwork() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const { currentUser } = useAuth();
   const [networks, setNetworks] = useState([]);
   const [showApplicationDialog, setShowApplicationDialog] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -82,9 +87,6 @@ function CreatorNetwork() {
     languages: [],
     description: '',
     targetAudience: [],
-    revenueShare: '',
-    minimumFollowers: '',
-    contractTerms: '',
   });
   const [lastApplicationDate, setLastApplicationDate] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -102,24 +104,34 @@ function CreatorNetwork() {
   const navigate = useNavigate();
   const auth = getAuth();
 
+  const audienceOptions = [
+    'Gaming',
+    'Music',
+    'Art',
+    'Education',
+    'Technology',
+    'Fitness',
+    'Fashion',
+    'Food',
+    'Travel',
+    'LIVE Match',
+    'Mental Health',
+    'Other',
+  ];
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setCurrentUser(user);
-        fetchNetworks();
-        checkLastApplication(user.uid);
-      } else {
-        navigate('/login');
-      }
-    });
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+    fetchNetworks();
+    checkLastApplication();
+  }, [currentUser, navigate]);
 
-    return () => unsubscribe();
-  }, [auth, navigate]);
-
-  const checkLastApplication = async (userId) => {
+  const checkLastApplication = async () => {
     try {
       const applicationsRef = collection(db, 'networkApplications');
-      const q = query(applicationsRef, where('userId', '==', userId));
+      const q = query(applicationsRef, where('userId', '==', currentUser.uid));
       const querySnapshot = await getDocs(q);
       if (!querySnapshot.empty) {
         const lastApplication = querySnapshot.docs[querySnapshot.docs.length - 1].data();
@@ -217,9 +229,6 @@ function CreatorNetwork() {
         languages: [],
         description: '',
         targetAudience: [],
-        revenueShare: '',
-        minimumFollowers: '',
-        contractTerms: '',
       });
     } catch (error) {
       console.error('Error submitting application:', error);
@@ -257,6 +266,49 @@ function CreatorNetwork() {
     setSelectedNetwork(network);
     setShowNetworkDetails(true);
     fetchNetworkReviews(network.id);
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setApplicationForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSocialLinkChange = (platform, value) => {
+    setApplicationForm(prev => ({
+      ...prev,
+      socialMedia: {
+        ...prev.socialMedia,
+        [platform]: value
+      }
+    }));
+  };
+
+  const handleAudienceChange = (e) => {
+    const { value } = e.target;
+    setApplicationForm(prev => ({
+      ...prev,
+      targetAudience: value
+    }));
+  };
+
+  const handleCustomAudienceAdd = () => {
+    if (applicationForm.customAudience?.trim()) {
+      setApplicationForm(prev => ({
+        ...prev,
+        targetAudience: [...prev.targetAudience, prev.customAudience.trim()],
+        customAudience: ''
+      }));
+    }
+  };
+
+  const handleAudienceDelete = (audienceToDelete) => {
+    setApplicationForm(prev => ({
+      ...prev,
+      targetAudience: prev.targetAudience.filter(audience => audience !== audienceToDelete)
+    }));
   };
 
   if (loading) {
@@ -515,7 +567,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="First Name"
                     value={applicationForm.firstName}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, firstName: e.target.value }))}
+                    onChange={handleChange}
                     required
                   />
                 </Grid>
@@ -524,7 +576,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="Last Name"
                     value={applicationForm.lastName}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, lastName: e.target.value }))}
+                    onChange={handleChange}
                     required
                   />
                 </Grid>
@@ -533,7 +585,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="Creator Network or Agency Name"
                     value={applicationForm.networkName}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, networkName: e.target.value }))}
+                    onChange={handleChange}
                     required
                   />
                 </Grid>
@@ -542,7 +594,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="Legal Business Name"
                     value={applicationForm.legalBusinessName}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, legalBusinessName: e.target.value }))}
+                    onChange={handleChange}
                     required
                   />
                 </Grid>
@@ -551,7 +603,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="Business Address"
                     value={applicationForm.businessAddress}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, businessAddress: e.target.value }))}
+                    onChange={handleChange}
                     required
                   />
                 </Grid>
@@ -560,7 +612,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="Business Zip Code"
                     value={applicationForm.businessZipCode}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, businessZipCode: e.target.value }))}
+                    onChange={handleChange}
                     required
                   />
                 </Grid>
@@ -569,7 +621,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="Business State/Province"
                     value={applicationForm.businessState}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, businessState: e.target.value }))}
+                    onChange={handleChange}
                     required
                   />
                 </Grid>
@@ -578,7 +630,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="Business Country"
                     value={applicationForm.businessCountry}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, businessCountry: e.target.value }))}
+                    onChange={handleChange}
                     required
                   />
                 </Grid>
@@ -587,7 +639,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="Website"
                     value={applicationForm.website}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, website: e.target.value }))}
+                    onChange={handleChange}
                   />
                 </Grid>
                 <Grid item xs={12} md={4}>
@@ -595,10 +647,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="Instagram"
                     value={applicationForm.socialMedia.instagram}
-                    onChange={(e) => setApplicationForm(prev => ({
-                      ...prev,
-                      socialMedia: { ...prev.socialMedia, instagram: e.target.value }
-                    }))}
+                    onChange={(e) => handleSocialLinkChange('instagram', e.target.value)}
                   />
                 </Grid>
                 <Grid item xs={12} md={4}>
@@ -606,10 +655,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="Twitter"
                     value={applicationForm.socialMedia.twitter}
-                    onChange={(e) => setApplicationForm(prev => ({
-                      ...prev,
-                      socialMedia: { ...prev.socialMedia, twitter: e.target.value }
-                    }))}
+                    onChange={(e) => handleSocialLinkChange('twitter', e.target.value)}
                   />
                 </Grid>
                 <Grid item xs={12} md={4}>
@@ -617,10 +663,7 @@ function CreatorNetwork() {
                     fullWidth
                     label="LinkedIn"
                     value={applicationForm.socialMedia.linkedin}
-                    onChange={(e) => setApplicationForm(prev => ({
-                      ...prev,
-                      socialMedia: { ...prev.socialMedia, linkedin: e.target.value }
-                    }))}
+                    onChange={(e) => handleSocialLinkChange('linkedin', e.target.value)}
                   />
                 </Grid>
                 <Grid item xs={12}>
@@ -672,7 +715,7 @@ function CreatorNetwork() {
                     rows={4}
                     label="Description"
                     value={applicationForm.description}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={handleChange}
                     required
                   />
                 </Grid>
@@ -682,51 +725,17 @@ function CreatorNetwork() {
                     <Select
                       multiple
                       value={applicationForm.targetAudience}
-                      onChange={(e) => setApplicationForm(prev => ({ ...prev, targetAudience: e.target.value }))}
+                      onChange={handleAudienceChange}
                       label="Target Audience"
                       renderValue={(selected) => selected.join(', ')}
                     >
-                      <MenuItem value="Gaming">Gaming</MenuItem>
-                      <MenuItem value="Music">Music</MenuItem>
-                      <MenuItem value="Dance">Dance</MenuItem>
-                      <MenuItem value="Comedy">Comedy</MenuItem>
-                      <MenuItem value="Beauty">Beauty</MenuItem>
-                      <MenuItem value="Fashion">Fashion</MenuItem>
-                      <MenuItem value="Food">Food</MenuItem>
-                      <MenuItem value="Travel">Travel</MenuItem>
-                      <MenuItem value="Fitness">Fitness</MenuItem>
-                      <MenuItem value="Education">Education</MenuItem>
+                      {audienceOptions.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Revenue Share"
-                    value={applicationForm.revenueShare}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, revenueShare: e.target.value }))}
-                    placeholder="e.g., 70/30 split"
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Minimum Followers"
-                    value={applicationForm.minimumFollowers}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, minimumFollowers: e.target.value }))}
-                    placeholder="e.g., 10,000"
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={4}
-                    label="Contract Terms"
-                    value={applicationForm.contractTerms}
-                    onChange={(e) => setApplicationForm(prev => ({ ...prev, contractTerms: e.target.value }))}
-                    placeholder="Describe your contract terms and conditions"
-                  />
                 </Grid>
                 <Grid item xs={12}>
                   <Button

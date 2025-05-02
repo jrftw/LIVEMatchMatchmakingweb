@@ -22,6 +22,7 @@ import {
   Sports as SportsIcon,
 } from '@mui/icons-material';
 import { Link, useLocation } from 'react-router-dom';
+import Search from './Search';
 
 const menuItems = [
   { text: 'LIVE Matchmaking', icon: <PeopleIcon />, path: '/matchmaking' },
@@ -45,6 +46,10 @@ function ModuleMenu() {
 
   return (
     <Box sx={{ width: 250, bgcolor: 'background.paper' }}>
+      <Box sx={{ p: 2 }}>
+        <Search />
+      </Box>
+      <Divider />
       <List>
         {mainFeatures.map((item) => (
           <ListItem

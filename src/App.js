@@ -2,7 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase/config';
-import { ThemeProvider, CssBaseline, Box, CircularProgress } from '@mui/material';
+import { ThemeProvider, CssBaseline, Box, CircularProgress, AppBar, Toolbar, Typography, Button } from '@mui/material';
 import theme from './theme';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -10,6 +10,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './contexts/AuthContext';
 import ModuleMenu from './components/ModuleMenu';
 import PrivateRoute from './components/PrivateRoute';
+import Feed from './components/Feed';
 
 // Lazy load components
 const Home = lazy(() => import('./pages/Home'));
@@ -27,7 +28,7 @@ const Discover = lazy(() => import('./pages/Discover'));
 const Matches = lazy(() => import('./pages/Matches'));
 const CreatorNetwork = lazy(() => import('./pages/CreatorNetwork'));
 const Messages = lazy(() => import('./pages/Messages'));
-const Feed = lazy(() => import('./pages/Feed'));
+const FeedComponent = lazy(() => import('./components/Feed'));
 const SubscriptionPlans = lazy(() => import('./components/SubscriptionPlans'));
 const TestComponent = lazy(() => import('./components/TestComponent'));
 const MyEvents = lazy(() => import('./pages/MyEvents'));
@@ -93,8 +94,8 @@ function App() {
                       <Route path="/discover" element={<PrivateRoute><Discover /></PrivateRoute>} />
                       <Route path="/matches" element={<PrivateRoute><Matches /></PrivateRoute>} />
                       <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
-                      <Route path="/feed" element={<PrivateRoute><Feed /></PrivateRoute>} />
-                      <Route path="/profile/:id" element={<PrivateRoute><Profile /></PrivateRoute>} />
+                      <Route path="/feed" element={<PrivateRoute><FeedComponent /></PrivateRoute>} />
+                      <Route path="/profile/:identifier" element={<PrivateRoute><Profile /></PrivateRoute>} />
                       <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
                       <Route path="/subscription" element={<PrivateRoute><SubscriptionPlans /></PrivateRoute>} />
                       <Route path="/creator-network" element={<PrivateRoute><CreatorNetwork /></PrivateRoute>} />

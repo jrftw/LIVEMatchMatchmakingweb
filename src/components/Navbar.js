@@ -13,14 +13,9 @@ import {
 import {
   Home as HomeIcon,
   Explore as ExploreIcon,
-  EmojiEvents as EmojiEventsIcon,
-  People as PeopleIcon,
   Chat as ChatIcon,
   Feed as FeedIcon,
   AccountCircle as AccountCircleIcon,
-  Group as GroupIcon,
-  SportsEsports as SportsEsportsIcon,
-  MilitaryTech as MilitaryTechIcon,
 } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -79,38 +74,6 @@ function Navbar() {
               <Button
                 color="inherit"
                 component={Link}
-                to="/matchmaking"
-                startIcon={<SportsEsportsIcon />}
-              >
-                Matchmaking
-              </Button>
-              <Button
-                color="inherit"
-                component={Link}
-                to="/tournaments"
-                startIcon={<EmojiEventsIcon />}
-              >
-                Tournaments
-              </Button>
-              <Button
-                color="inherit"
-                component={Link}
-                to="/creator-network"
-                startIcon={<GroupIcon />}
-              >
-                Networks
-              </Button>
-              <Button
-                color="inherit"
-                component={Link}
-                to="/achievements"
-                startIcon={<MilitaryTechIcon />}
-              >
-                Achievements
-              </Button>
-              <Button
-                color="inherit"
-                component={Link}
                 to="/messages"
                 startIcon={<ChatIcon />}
               >
@@ -161,7 +124,7 @@ function Navbar() {
             >
               <MenuItem
                 component={Link}
-                to={`/profile/${currentUser.uid}`}
+                to={`/profile/${currentUser?.username || currentUser?.uid}`}
                 onClick={handleClose}
               >
                 Profile
