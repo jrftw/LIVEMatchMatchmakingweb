@@ -21,7 +21,7 @@ const functionConfig = {
 
 // Health check endpoint (public)
 exports.health = functions.https.onRequest(functionConfig, (req, res) => {
-  res.json({status: "ok", version: "1.03 Build 1"});
+  res.json({status: "ok", version: "1.03"});
 });
 
 // Middleware to authenticate requests
