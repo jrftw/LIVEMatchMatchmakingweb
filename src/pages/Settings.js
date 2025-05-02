@@ -35,8 +35,18 @@ function Settings() {
 
   const changeLog = [
     {
-      version: '1.0.0',
+      version: '1.03',
       date: '2024-05-02',
+      changes: [
+        'Updated Firebase Functions to v2',
+        'Improved API endpoints and authentication',
+        'Fixed deployment issues',
+        'Updated copyright information',
+      ],
+    },
+    {
+      version: '1.0.0',
+      date: '2024-05-01',
       changes: [
         'Initial release',
         'Added network creation and management',

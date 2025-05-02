@@ -19,10 +19,10 @@ function Footer() {
       zIndex: 1000
     }}>
       <Typography variant="body2" color="text.secondary" align="center">
-        © 2025 LiveMatchScheduling. All rights reserved.
+        © 2025 Infinitum Imagery LLC. All rights reserved.
       </Typography>
       <Typography variant="caption" color="text.secondary">
-        Version 1.0.0
+        Version 1.03
       </Typography>
     </Box>
   );
