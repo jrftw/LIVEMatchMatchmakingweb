@@ -837,7 +837,7 @@ function Matchmaking() {
       try {
         const matchesQuery = query(
           collection(db, 'matches'),
-          where('status', '==', 'open'),
+          where('status', '==', selectedMatchType),
           where('type', 'in', selectedFormats)
         );
         const matchesSnapshot = await getDocs(matchesQuery);
@@ -859,7 +859,7 @@ function Matchmaking() {
     };
 
     fetchSuggestedMatches();
-  }, [currentUser, selectedFormats]);
+  }, [currentUser, selectedFormats, selectedMatchType]);
 
   const handleCreateSquad = async () => {
     try {
@@ -1391,12 +1391,24 @@ function Matchmaking() {
 
         {activeTab === 1 && (
           <Grid container spacing={responsiveStyles.gridContainer.spacing}>
-            <Grid item {...responsiveStyles.gridItem}>
+            <Grid item xs={12}>
               <Card sx={responsiveStyles.card}>
                 <CardContent>
-                  <Typography variant={isMobile ? 'h6' : 'h5'} gutterBottom>
-                    Match Preferences
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant={isMobile ? 'h6' : 'h5'} gutterBottom>
+                      Find Matches
+                    </Typography>
+                    <Tabs
+                      value={selectedMatchType}
+                      onChange={(e, newValue) => setSelectedMatchType(newValue)}
+                      variant="scrollable"
+                      scrollButtons="auto"
+                    >
+                      <Tab label="Upcoming" value="upcoming" />
+                      <Tab label="Ongoing" value="ongoing" />
+                      <Tab label="Completed" value="completed" />
+                    </Tabs>
+                  </Box>
                   <FormGroup>
                     {matchFormats.map(format => (
                       <FormControlLabel

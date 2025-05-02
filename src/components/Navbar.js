@@ -59,7 +59,7 @@ function Navbar() {
             alignItems: 'center',
           }}
         >
-          LiveMatch
+          LIVE Match - Matchmaking
         </Typography>
 
         {currentUser ? (
@@ -72,30 +72,6 @@ function Navbar() {
                 startIcon={<HomeIcon />}
               >
                 Home
-              </Button>
-              <Button
-                color="inherit"
-                component={Link}
-                to="/discover"
-                startIcon={<ExploreIcon />}
-              >
-                Discover
-              </Button>
-              <Button
-                color="inherit"
-                component={Link}
-                to="/tournaments"
-                startIcon={<EmojiEventsIcon />}
-              >
-                Tournaments
-              </Button>
-              <Button
-                color="inherit"
-                component={Link}
-                to="/creator-network"
-                startIcon={<PeopleIcon />}
-              >
-                Networks
               </Button>
               <Button
                 color="inherit"

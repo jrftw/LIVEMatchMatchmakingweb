@@ -12,8 +12,8 @@ const firebaseConfig = {
   projectId: "live-match---matchmaking",
   storageBucket: "live-match---matchmaking.firebasestorage.app",
   messagingSenderId: "615425120469",
-  appId: "1:615425120469:web:0f82d0b4aa3f362caaea5c",
-  measurementId: "G-9RE1CS3MCZ"
+  appId: "1:615425120469:web:47d48776be50bac7aaea5c",
+  measurementId: "G-V1B9CVF398"
 };
 
 const app = initializeApp(firebaseConfig);

@@ -14,45 +14,54 @@ import {
   Stack,
 } from '@mui/material';
 import { Favorite, Close, Info } from '@mui/icons-material';
-import { collection, query, where, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 function Discover() {
   const [currentUser, setCurrentUser] = useState(null);
   const [suggestedUsers, setSuggestedUsers] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const auth = getAuth();
 
   useEffect(() => {
-    // Fetch current user's data
-    const fetchCurrentUser = async () => {
-      // TODO: Replace with actual user ID from auth context
-      const userDoc = await getDocs(doc(db, 'users', 'currentUserId'));
-      setCurrentUser(userDoc.data());
-    };
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Fetch current user's data
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setCurrentUser(userData);
+          
+          // Fetch suggested users only if current user has tags
+          if (userData.tags && userData.tags.length > 0) {
+            const usersRef = collection(db, 'users');
+            const q = query(
+              usersRef,
+              where('tags', 'array-contains-any', userData.tags),
+              where('uid', '!=', user.uid) // Exclude current user
+            );
+            const querySnapshot = await getDocs(q);
+            const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setSuggestedUsers(users);
+          }
+        }
+      }
+    });
 
-    // Fetch suggested users
-    const fetchSuggestedUsers = async () => {
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('tags', 'array-contains-any', currentUser?.tags || []));
-      const querySnapshot = await getDocs(q);
-      const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setSuggestedUsers(users);
-    };
-
-    fetchCurrentUser();
-    fetchSuggestedUsers();
-  }, []);
+    return () => unsubscribe();
+  }, [auth]);
 
   const handleSwipe = async (direction) => {
     if (currentIndex >= suggestedUsers.length) return;
 
-    const currentUserId = 'currentUserId'; // TODO: Replace with actual user ID
+    const currentUserId = auth.currentUser?.uid;
     const swipedUserId = suggestedUsers[currentIndex].id;
 
-    if (direction === 'right') {
+    if (direction === 'right' && currentUserId) {
       // Add to matches if both users swiped right
       const swipedUserRef = doc(db, 'users', swipedUserId);
-      const swipedUserDoc = await getDocs(swipedUserRef);
+      const swipedUserDoc = await getDoc(swipedUserRef);
       const swipedUser = swipedUserDoc.data();
 
       if (swipedUser.likes?.includes(currentUserId)) {

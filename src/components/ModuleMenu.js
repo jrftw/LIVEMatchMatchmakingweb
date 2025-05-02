@@ -16,12 +16,17 @@ import {
   Help as HelpIcon,
   Settings as SettingsIcon,
   SportsEsports as SportsEsportsIcon,
+  Explore as ExploreIcon,
+  Groups as GroupsIcon,
 } from '@mui/icons-material';
 import { Link, useLocation } from 'react-router-dom';
 
 const menuItems = [
   { text: 'LIVE Matchmaking', icon: <PeopleIcon />, path: '/matchmaking' },
   { text: 'Gaming', icon: <SportsEsportsIcon />, path: '/gaming' },
+  { text: 'Discover', icon: <ExploreIcon />, path: '/discover' },
+  { text: 'Tournaments', icon: <EmojiEventsIcon />, path: '/tournaments' },
+  { text: 'Networks', icon: <GroupsIcon />, path: '/creator-network' },
   { text: 'My Events', icon: <EventIcon />, path: '/my-events' },
   { text: 'Achievements', icon: <EmojiEventsIcon />, path: '/achievements' },
   { text: 'Leaderboards', icon: <LeaderboardIcon />, path: '/leaderboards' },

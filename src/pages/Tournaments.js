@@ -21,276 +21,543 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Checkbox,
+  FormControlLabel,
+  Switch,
+  CircularProgress,
+  ListItemText,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { collection, addDoc, getDocs, query, where, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, doc, updateDoc, arrayUnion, Timestamp, getDoc } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { db } from '../firebase/config';
-import { getAuth } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 
 function Tournaments() {
-  const [tabValue, setTabValue] = useState(0);
-  const [tournaments, setTournaments] = useState([]);
-  const [newTournament, setNewTournament] = useState({
-    name: '',
-    description: '',
-    platform: '',
-    startDate: null,
-    endDate: null,
-    maxParticipants: 16,
-    entryFee: 0,
-    prizePool: 0,
-    rules: '',
-    status: 'upcoming',
-  });
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
+  const [brackets, setBrackets] = useState([]);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [bracketName, setBracketName] = useState('');
+  const [selectedFormat, setSelectedFormat] = useState('1v1');
+  const [selectedPlatform, setSelectedPlatform] = useState('TikTok');
+  const [otherPlatform, setOtherPlatform] = useState('');
+  const [maxPlayers, setMaxPlayers] = useState(8);
+  const [description, setDescription] = useState('');
+  const [bracketStartDate, setBracketStartDate] = useState(null);
+  const [bracketEndDate, setBracketEndDate] = useState(null);
+  const [entryFeeType, setEntryFeeType] = useState('free');
+  const [entryFeeAmount, setEntryFeeAmount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentDueDate, setPaymentDueDate] = useState(null);
+  const [paymentUsername, setPaymentUsername] = useState('');
+  const [prizeType, setPrizeType] = useState('none');
+  const [prizeAmount, setPrizeAmount] = useState(0);
+  const [autoPairing, setAutoPairing] = useState(true);
+  const [bracketTimeSlots, setBracketTimeSlots] = useState([0, 15, 30, 45]);
+  const [bracketSelectedTimes, setBracketSelectedTimes] = useState([]);
+  const [bracketUse12Hour, setBracketUse12Hour] = useState(true);
+  const navigate = useNavigate();
+  const auth = getAuth();
 
   useEffect(() => {
-    fetchTournaments();
-  }, [tabValue]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user);
+      } else {
+        navigate('/login');
+      }
+    });
 
-  const fetchTournaments = async () => {
-    const tournamentsRef = collection(db, 'tournaments');
-    let q;
-    
-    if (tabValue === 0) {
-      q = query(tournamentsRef, where('status', '==', 'upcoming'));
-    } else if (tabValue === 1) {
-      q = query(tournamentsRef, where('status', '==', 'ongoing'));
-    } else {
-      q = query(tournamentsRef, where('status', '==', 'completed'));
+    return () => unsubscribe();
+  }, [auth, navigate]);
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchBrackets();
     }
+  }, [currentUser, activeTab]);
 
-    const querySnapshot = await getDocs(q);
-    const tournamentsData = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    setTournaments(tournamentsData);
-  };
-
-  const handleCreateTournament = async (e) => {
-    e.preventDefault();
+  const fetchBrackets = async () => {
     try {
-      const tournamentRef = await addDoc(collection(db, 'tournaments'), {
-        ...newTournament,
-        createdAt: new Date(),
-        participants: [],
-        matches: [],
-      });
+      const bracketsRef = collection(db, 'brackets');
+      let q;
       
-      setNewTournament({
-        name: '',
-        description: '',
-        platform: '',
-        startDate: null,
-        endDate: null,
-        maxParticipants: 16,
-        entryFee: 0,
-        prizePool: 0,
-        rules: '',
-        status: 'upcoming',
-      });
-      
-      fetchTournaments();
+      if (activeTab === 0) {
+        q = query(bracketsRef, where('status', '==', 'upcoming'));
+      } else if (activeTab === 1) {
+        q = query(bracketsRef, where('status', '==', 'ongoing'));
+      } else {
+        q = query(bracketsRef, where('status', '==', 'completed'));
+      }
+
+      const querySnapshot = await getDocs(q);
+      const bracketsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setBrackets(bracketsData);
+      setLoading(false);
     } catch (error) {
-      console.error('Error creating tournament:', error);
+      console.error('Error fetching brackets:', error);
+      setError('Failed to fetch brackets');
+      setLoading(false);
     }
   };
 
-  const handleJoinTournament = async (tournamentId) => {
+  const handleCreateBracket = async () => {
     try {
-      const tournamentRef = doc(db, 'tournaments', tournamentId);
-      await updateDoc(tournamentRef, {
-        participants: arrayUnion('currentUserId') // TODO: Replace with actual user ID
-      });
-      fetchTournaments();
+      if (!bracketName) {
+        alert('Please enter a bracket name');
+        return;
+      }
+
+      if (!bracketStartDate || !bracketEndDate) {
+        alert('Please select both start and end dates');
+        return;
+      }
+
+      if (selectedPlatform === 'other' && !otherPlatform) {
+        alert('Please enter the other platform name');
+        return;
+      }
+
+      if (entryFeeType !== 'free' && (!paymentMethod || !paymentDueDate || !paymentUsername)) {
+        alert('Please fill in all payment details');
+        return;
+      }
+
+      const bracketData = {
+        name: bracketName,
+        format: selectedFormat,
+        platform: selectedPlatform === 'other' ? otherPlatform : selectedPlatform,
+        creatorId: currentUser.uid,
+        creatorName: currentUser.displayName,
+        participants: [currentUser.uid],
+        status: 'open',
+        createdAt: Timestamp.now(),
+        startDate: Timestamp.fromDate(bracketStartDate),
+        endDate: Timestamp.fromDate(bracketEndDate),
+        maxPlayers,
+        description,
+        autoPairing,
+        timeSlots: bracketTimeSlots,
+        selectedTimes: bracketSelectedTimes,
+        prize: {
+          type: prizeType,
+          amount: prizeType !== 'none' ? prizeAmount : 0
+        },
+        entryFee: {
+          type: entryFeeType,
+          amount: entryFeeType !== 'free' ? entryFeeAmount : 0,
+          paymentMethod: entryFeeType !== 'free' ? paymentMethod : null,
+          dueDate: entryFeeType !== 'free' ? Timestamp.fromDate(paymentDueDate) : null,
+          destinationUsername: entryFeeType !== 'free' ? paymentUsername : null
+        }
+      };
+
+      await addDoc(collection(db, 'brackets'), bracketData);
+      setShowCreateDialog(false);
+      fetchBrackets();
+
+      // Reset form
+      setBracketName('');
+      setSelectedFormat('1v1');
+      setSelectedPlatform('TikTok');
+      setOtherPlatform('');
+      setMaxPlayers(8);
+      setDescription('');
+      setPrizeType('none');
+      setPrizeAmount(0);
+      setEntryFeeType('free');
+      setEntryFeeAmount(0);
+      setPaymentMethod('');
+      setPaymentDueDate(null);
+      setPaymentUsername('');
+      setBracketStartDate(null);
+      setBracketEndDate(null);
+      setBracketTimeSlots([0, 15, 30, 45]);
+      setBracketSelectedTimes([]);
     } catch (error) {
-      console.error('Error joining tournament:', error);
+      console.error('Error creating bracket:', error);
+      setError('Failed to create bracket');
     }
   };
+
+  const handleJoinBracket = async (bracketId) => {
+    try {
+      const bracketRef = doc(db, 'brackets', bracketId);
+      const bracketDoc = await getDoc(bracketRef);
+      const bracketData = bracketDoc.data();
+
+      if (bracketData.participants.length >= bracketData.maxPlayers) {
+        alert('This bracket is full!');
+        return;
+      }
+
+      if (bracketData.participants.includes(currentUser.uid)) {
+        alert('You are already in this bracket!');
+        return;
+      }
+
+      await updateDoc(bracketRef, {
+        participants: arrayUnion(currentUser.uid)
+      });
+
+      alert('Successfully joined the bracket!');
+      fetchBrackets();
+    } catch (error) {
+      console.error('Error joining bracket:', error);
+      alert('Failed to join bracket. Please try again.');
+    }
+  };
+
+  const formatTimeSlot = (hour, minute, use12Hour) => {
+    const time = new Date();
+    time.setHours(hour, minute, 0);
+    return use12Hour ? time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Container maxWidth="lg">
       <Box sx={{ mt: 4 }}>
-        <Tabs
-          value={tabValue}
-          onChange={(e, newValue) => setTabValue(newValue)}
-          sx={{ mb: 4 }}
-        >
-          <Tab label="Upcoming" />
-          <Tab label="Ongoing" />
-          <Tab label="Completed" />
-        </Tabs>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Tabs
+            value={activeTab}
+            onChange={(e, newValue) => setActiveTab(newValue)}
+          >
+            <Tab label="Upcoming" />
+            <Tab label="Ongoing" />
+            <Tab label="Completed" />
+          </Tabs>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setShowCreateDialog(true)}
+          >
+            Create Bracket
+          </Button>
+        </Box>
 
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={4}>
-            <Paper elevation={3} sx={{ p: 3 }}>
-              <Typography variant="h5" gutterBottom>
-                Create New Tournament
-              </Typography>
-              <form onSubmit={handleCreateTournament}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Tournament Name"
-                      value={newTournament.name}
-                      onChange={(e) => setNewTournament(prev => ({ ...prev, name: e.target.value }))}
-                      required
+        <Grid container spacing={3}>
+          {brackets.map((bracket) => (
+            <Grid item xs={12} sm={6} md={4} key={bracket.id}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    {bracket.name}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {bracket.description}
+                  </Typography>
+                  <Box sx={{ mt: 2 }}>
+                    <Chip
+                      label={`${bracket.participants?.length || 0}/${bracket.maxPlayers} Players`}
+                      color="primary"
+                      sx={{ mr: 1 }}
                     />
-                  </Grid>
+                    <Chip
+                      label={bracket.format}
+                      color="secondary"
+                      sx={{ mr: 1 }}
+                    />
+                    {bracket.autoPairing && (
+                      <Chip
+                        label="Auto-Pairing"
+                        color="success"
+                      />
+                    )}
+                  </Box>
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      <strong>Platform:</strong> {bracket.platform}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Start:</strong> {bracket.startDate?.toDate().toLocaleDateString()}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>End:</strong> {bracket.endDate?.toDate().toLocaleDateString()}
+                    </Typography>
+                    {bracket.entryFee?.type !== 'free' && (
+                      <Typography variant="body2">
+                        <strong>Entry Fee:</strong> ${bracket.entryFee?.amount}
+                      </Typography>
+                    )}
+                    {bracket.prize?.type !== 'none' && (
+                      <Typography variant="body2">
+                        <strong>Prize:</strong> ${bracket.prize?.amount}
+                      </Typography>
+                    )}
+                  </Box>
+                </CardContent>
+                <CardActions>
+                  {bracket.status === 'open' && (
+                    <Button
+                      size="small"
+                      color="primary"
+                      onClick={() => handleJoinBracket(bracket.id)}
+                    >
+                      Join Bracket
+                    </Button>
+                  )}
+                  <Button size="small">View Details</Button>
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        <Dialog
+          open={showCreateDialog}
+          onClose={() => setShowCreateDialog(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Create New Bracket</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Bracket Name"
+                  value={bracketName}
+                  onChange={(e) => setBracketName(e.target.value)}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Match Format</InputLabel>
+                  <Select
+                    value={selectedFormat}
+                    onChange={(e) => setSelectedFormat(e.target.value)}
+                    label="Match Format"
+                  >
+                    <MenuItem value="1v1">1v1</MenuItem>
+                    <MenuItem value="2v2">2v2</MenuItem>
+                    <MenuItem value="1v1v1v1">1v1v1v1</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Platform</InputLabel>
+                  <Select
+                    value={selectedPlatform}
+                    onChange={(e) => setSelectedPlatform(e.target.value)}
+                    label="Platform"
+                  >
+                    <MenuItem value="TikTok">TikTok</MenuItem>
+                    <MenuItem value="Favorited">Favorited</MenuItem>
+                    <MenuItem value="Bigo">Bigo</MenuItem>
+                    <MenuItem value="Mango">Mango</MenuItem>
+                    <MenuItem value="other">Other</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              {selectedPlatform === 'other' && (
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Other Platform Name"
+                    value={otherPlatform}
+                    onChange={(e) => setOtherPlatform(e.target.value)}
+                    required
+                  />
+                </Grid>
+              )}
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Max Players"
+                  value={maxPlayers}
+                  onChange={(e) => setMaxPlayers(Math.min(500, Math.max(2, parseInt(e.target.value) || 2)))}
+                  inputProps={{ min: 2, max: 500 }}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={4}
+                  label="Description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <DatePicker
+                  label="Start Date"
+                  value={bracketStartDate}
+                  onChange={(newValue) => setBracketStartDate(newValue)}
+                  renderInput={(params) => <TextField {...params} fullWidth required />}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <DatePicker
+                  label="End Date"
+                  value={bracketEndDate}
+                  onChange={(newValue) => setBracketEndDate(newValue)}
+                  renderInput={(params) => <TextField {...params} fullWidth required />}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Entry Fee Type</InputLabel>
+                  <Select
+                    value={entryFeeType}
+                    onChange={(e) => setEntryFeeType(e.target.value)}
+                    label="Entry Fee Type"
+                  >
+                    <MenuItem value="free">Free</MenuItem>
+                    <MenuItem value="cash">Cash</MenuItem>
+                    <MenuItem value="gift">Platform Gift</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              {entryFeeType !== 'free' && (
+                <>
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
-                      multiline
-                      rows={4}
-                      label="Description"
-                      value={newTournament.description}
-                      onChange={(e) => setNewTournament(prev => ({ ...prev, description: e.target.value }))}
+                      type="number"
+                      label="Entry Fee Amount"
+                      value={entryFeeAmount}
+                      onChange={(e) => setEntryFeeAmount(parseFloat(e.target.value))}
                       required
                     />
                   </Grid>
                   <Grid item xs={12}>
                     <FormControl fullWidth>
-                      <InputLabel>Platform</InputLabel>
+                      <InputLabel>Payment Method</InputLabel>
                       <Select
-                        value={newTournament.platform}
-                        onChange={(e) => setNewTournament(prev => ({ ...prev, platform: e.target.value }))}
-                        label="Platform"
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        label="Payment Method"
                         required
                       >
-                        <MenuItem value="TikTok">TikTok</MenuItem>
-                        <MenuItem value="Favorited">Favorited</MenuItem>
-                        <MenuItem value="Bigo">Bigo</MenuItem>
-                        <MenuItem value="Mango">Mango</MenuItem>
+                        <MenuItem value="cashapp">Cash App</MenuItem>
+                        <MenuItem value="venmo">Venmo</MenuItem>
+                        <MenuItem value="paypal">PayPal</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Payment Username"
+                      value={paymentUsername}
+                      onChange={(e) => setPaymentUsername(e.target.value)}
+                      required
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
                     <DatePicker
-                      label="Start Date"
-                      value={newTournament.startDate}
-                      onChange={(date) => setNewTournament(prev => ({ ...prev, startDate: date }))}
+                      label="Payment Due Date"
+                      value={paymentDueDate}
+                      onChange={(newValue) => setPaymentDueDate(newValue)}
                       renderInput={(params) => <TextField {...params} fullWidth required />}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <DatePicker
-                      label="End Date"
-                      value={newTournament.endDate}
-                      onChange={(date) => setNewTournament(prev => ({ ...prev, endDate: date }))}
-                      renderInput={(params) => <TextField {...params} fullWidth required />}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="Max Participants"
-                      value={newTournament.maxParticipants}
-                      onChange={(e) => setNewTournament(prev => ({ ...prev, maxParticipants: parseInt(e.target.value) }))}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="Entry Fee"
-                      value={newTournament.entryFee}
-                      onChange={(e) => setNewTournament(prev => ({ ...prev, entryFee: parseFloat(e.target.value) }))}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="Prize Pool"
-                      value={newTournament.prizePool}
-                      onChange={(e) => setNewTournament(prev => ({ ...prev, prizePool: parseFloat(e.target.value) }))}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={4}
-                      label="Rules"
-                      value={newTournament.rules}
-                      onChange={(e) => setNewTournament(prev => ({ ...prev, rules: e.target.value }))}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      color="primary"
-                      fullWidth
-                    >
-                      Create Tournament
-                    </Button>
-                  </Grid>
+                </>
+              )}
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Prize Type</InputLabel>
+                  <Select
+                    value={prizeType}
+                    onChange={(e) => setPrizeType(e.target.value)}
+                    label="Prize Type"
+                  >
+                    <MenuItem value="none">None</MenuItem>
+                    <MenuItem value="cash">Cash</MenuItem>
+                    <MenuItem value="gift">Platform Gift</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              {prizeType !== 'none' && (
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Prize Amount"
+                    value={prizeAmount}
+                    onChange={(e) => setPrizeAmount(parseFloat(e.target.value))}
+                    required
+                  />
                 </Grid>
-              </form>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={8}>
-            <Grid container spacing={3}>
-              {tournaments.map((tournament) => (
-                <Grid item xs={12} key={tournament.id}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h5" component="div">
-                        {tournament.name}
-                      </Typography>
-                      <Typography variant="subtitle1" color="text.secondary">
-                        {tournament.platform}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 2 }}>
-                        {tournament.description}
-                      </Typography>
-                      <Box sx={{ mt: 2 }}>
-                        <Chip
-                          label={`${tournament.participants?.length || 0}/${tournament.maxParticipants} Participants`}
-                          color="primary"
-                          sx={{ mr: 1 }}
-                        />
-                        <Chip
-                          label={`$${tournament.prizePool} Prize Pool`}
-                          color="secondary"
-                          sx={{ mr: 1 }}
-                        />
-                        <Chip
-                          label={`$${tournament.entryFee} Entry Fee`}
-                          color="default"
-                        />
-                      </Box>
-                      <Typography variant="body2" sx={{ mt: 2 }}>
-                        <strong>Start Date:</strong> {tournament.startDate?.toDate().toLocaleDateString()}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>End Date:</strong> {tournament.endDate?.toDate().toLocaleDateString()}
-                      </Typography>
-                    </CardContent>
-                    <CardActions>
-                      <Button
-                        size="small"
-                        color="primary"
-                        onClick={() => handleJoinTournament(tournament.id)}
-                      >
-                        Join Tournament
-                      </Button>
-                      <Button size="small">View Details</Button>
-                    </CardActions>
-                  </Card>
-                </Grid>
-              ))}
+              )}
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={autoPairing}
+                      onChange={(e) => setAutoPairing(e.target.checked)}
+                    />
+                  }
+                  label="Enable Auto-Pairing"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Time Slots</InputLabel>
+                  <Select
+                    multiple
+                    value={bracketTimeSlots}
+                    onChange={(e) => setBracketTimeSlots(e.target.value)}
+                    label="Time Slots"
+                    renderValue={(selected) => selected.map(slot => `${slot} minutes`).join(', ')}
+                  >
+                    <MenuItem value={0}>:00</MenuItem>
+                    <MenuItem value={15}>:15</MenuItem>
+                    <MenuItem value={30}>:30</MenuItem>
+                    <MenuItem value={45}>:45</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Select Times</InputLabel>
+                  <Select
+                    multiple
+                    value={bracketSelectedTimes}
+                    onChange={(e) => setBracketSelectedTimes(e.target.value)}
+                    label="Select Times"
+                    renderValue={(selected) => selected.join(', ')}
+                  >
+                    {Array.from({ length: 24 }, (_, hour) => 
+                      bracketTimeSlots.map(minute => formatTimeSlot(hour, minute, bracketUse12Hour))
+                    ).flat().map((time) => (
+                      <MenuItem key={time} value={time}>
+                        <Checkbox checked={bracketSelectedTimes.indexOf(time) > -1} />
+                        <ListItemText primary={time} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
             </Grid>
-          </Grid>
-        </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowCreateDialog(false)}>Cancel</Button>
+            <Button onClick={handleCreateBracket} variant="contained" color="primary">
+              Create Bracket
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Container>
   );
