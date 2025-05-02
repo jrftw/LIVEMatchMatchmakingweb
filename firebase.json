@@ -1,6 +1,10 @@
 {
   "hosting": {
     "public": "build",
+    "predeploy": [
+      "npm install --legacy-peer-deps",
+      "npm run build"
+    ],
     "ignore": [
       "firebase.json",
       "**/.*",
