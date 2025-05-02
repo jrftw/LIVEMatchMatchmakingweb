@@ -1,5 +1,12 @@
 import React from 'react';
-import { Box, Typography, Container, Link } from '@mui/material';
+import { Box, Typography, Container, Link, IconButton } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
+import {
+  Facebook as FacebookIcon,
+  Twitter as TwitterIcon,
+  Instagram as InstagramIcon,
+  LinkedIn as LinkedInIcon,
+} from '@mui/icons-material';
 
 function Footer() {
   return (
@@ -27,15 +34,59 @@ function Footer() {
             © {new Date().getFullYear()} LiveMatch. All rights reserved.
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, mt: { xs: 2, sm: 0 } }}>
-            <Link href="/help" color="inherit" underline="hover">
+            <Link component={RouterLink} to="/help" color="inherit" underline="hover">
               Help
             </Link>
-            <Link href="/terms" color="inherit" underline="hover">
+            <Link component={RouterLink} to="/terms" color="inherit" underline="hover">
               Terms
             </Link>
-            <Link href="/privacy" color="inherit" underline="hover">
+            <Link component={RouterLink} to="/privacy" color="inherit" underline="hover">
               Privacy
             </Link>
+            <Link component={RouterLink} to="/about" color="inherit" underline="hover">
+              About
+            </Link>
+            <Link component={RouterLink} to="/contact" color="inherit" underline="hover">
+              Contact
+            </Link>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, mt: { xs: 2, sm: 0 } }}>
+            <IconButton
+              color="inherit"
+              component="a"
+              href="https://facebook.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <FacebookIcon />
+            </IconButton>
+            <IconButton
+              color="inherit"
+              component="a"
+              href="https://twitter.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <TwitterIcon />
+            </IconButton>
+            <IconButton
+              color="inherit"
+              component="a"
+              href="https://instagram.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <InstagramIcon />
+            </IconButton>
+            <IconButton
+              color="inherit"
+              component="a"
+              href="https://linkedin.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <LinkedInIcon />
+            </IconButton>
           </Box>
         </Box>
       </Container>

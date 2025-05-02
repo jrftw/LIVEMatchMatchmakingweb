@@ -33,6 +33,10 @@ const TestComponent = lazy(() => import('./components/TestComponent'));
 const MyEvents = lazy(() => import('./pages/MyEvents'));
 const Leaderboards = lazy(() => import('./pages/Leaderboards'));
 const News = lazy(() => import('./pages/News'));
+const Terms = lazy(() => import('./pages/Terms'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const About = lazy(() => import('./pages/About'));
+const Contact = lazy(() => import('./pages/Contact'));
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -91,10 +95,17 @@ function App() {
                       <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
                       <Route path="/feed" element={<PrivateRoute><Feed /></PrivateRoute>} />
                       <Route path="/profile/:id" element={<PrivateRoute><Profile /></PrivateRoute>} />
-                      <Route path="/settings" element={currentUser ? <Settings /> : <Navigate to="/login" />} />
+                      <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
                       <Route path="/subscription" element={<PrivateRoute><SubscriptionPlans /></PrivateRoute>} />
-                      <Route path="/test" element={<TestComponent />} />
+                      <Route path="/creator-network" element={<PrivateRoute><CreatorNetwork /></PrivateRoute>} />
+                      {process.env.NODE_ENV === 'development' && (
+                        <Route path="/test" element={<TestComponent />} />
+                      )}
                       <Route path="/my-events" element={<PrivateRoute><MyEvents /></PrivateRoute>} />
+                      <Route path="/terms" element={<Terms />} />
+                      <Route path="/privacy" element={<Privacy />} />
+                      <Route path="/about" element={<About />} />
+                      <Route path="/contact" element={<Contact />} />
                     </Routes>
                   </Suspense>
                 </Box>
