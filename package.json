@@ -1,6 +1,6 @@
 {
   "name": "live-match-scheduling",
-  "version": "0.1.0",
+  "version": "1.03 Build 1",
   "private": true,
   "engines": {
     "node": ">=18.0.0",
@@ -19,8 +19,8 @@
     "@mui/x-date-pickers": "^6.19.0",
     "@paypal/react-paypal-js": "^8.0.0",
     "@react-google-maps/api": "^2.19.3",
-    "ajv": "^6.12.6",
-    "ajv-keywords": "^3.5.2",
+    "ajv": "^8.17.1",
+    "ajv-keywords": "^5.1.0",
     "date-fns": "^2.30.0",
     "firebase": "^9.22.0",
     "react": "^18.2.0",
@@ -64,6 +64,9 @@
   "resolutions": {
     "@mui/material": "^5.15.11",
     "@mui/icons-material": "^5.15.11",
-    "@mui/lab": "^5.0.0-alpha.165"
+    "@mui/lab": "^5.0.0-alpha.165",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ajv": "^8.17.1"
   }
 }

@@ -32,6 +32,7 @@ import { collection, addDoc, getDocs, query, where, doc, updateDoc, arrayUnion, 
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { db } from '../firebase/config';
 import { useNavigate } from 'react-router-dom';
+import { apiService } from '../services/api';
 
 function Tournaments() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -66,6 +67,7 @@ function Tournaments() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setCurrentUser(user);
+        fetchBrackets();
       } else {
         navigate('/login');
       }
@@ -74,31 +76,11 @@ function Tournaments() {
     return () => unsubscribe();
   }, [auth, navigate]);
 
-  useEffect(() => {
-    if (currentUser) {
-      fetchBrackets();
-    }
-  }, [currentUser, activeTab]);
-
   const fetchBrackets = async () => {
     try {
-      const bracketsRef = collection(db, 'brackets');
-      let q;
-      
-      if (activeTab === 0) {
-        q = query(bracketsRef, where('status', '==', 'upcoming'));
-      } else if (activeTab === 1) {
-        q = query(bracketsRef, where('status', '==', 'ongoing'));
-      } else {
-        q = query(bracketsRef, where('status', '==', 'completed'));
-      }
-
-      const querySnapshot = await getDocs(q);
-      const bracketsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setBrackets(bracketsData);
+      setLoading(true);
+      const tournaments = await apiService.get('/api/tournaments');
+      setBrackets(tournaments || []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching brackets:', error);
@@ -137,9 +119,8 @@ function Tournaments() {
         creatorName: currentUser.displayName,
         participants: [currentUser.uid],
         status: 'open',
-        createdAt: Timestamp.now(),
-        startDate: Timestamp.fromDate(bracketStartDate),
-        endDate: Timestamp.fromDate(bracketEndDate),
+        startDate: bracketStartDate.toISOString(),
+        endDate: bracketEndDate.toISOString(),
         maxPlayers,
         description,
         autoPairing,
@@ -153,12 +134,12 @@ function Tournaments() {
           type: entryFeeType,
           amount: entryFeeType !== 'free' ? entryFeeAmount : 0,
           paymentMethod: entryFeeType !== 'free' ? paymentMethod : null,
-          dueDate: entryFeeType !== 'free' ? Timestamp.fromDate(paymentDueDate) : null,
+          dueDate: entryFeeType !== 'free' ? paymentDueDate.toISOString() : null,
           destinationUsername: entryFeeType !== 'free' ? paymentUsername : null
         }
       };
 
-      await addDoc(collection(db, 'brackets'), bracketData);
+      await apiService.post('/api/tournaments', bracketData);
       setShowCreateDialog(false);
       fetchBrackets();
 

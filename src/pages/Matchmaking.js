@@ -50,6 +50,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { Remove as RemoveIcon } from '@mui/icons-material';
 import { autoPairCreators, generateWeeklyEvents, manualPairCreators } from '../utils/matchmakingUtils';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { apiService } from '../services/api';
 
 function Matchmaking() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -282,43 +283,16 @@ function Matchmaking() {
   const fetchUserData = async (user) => {
     try {
       setLoading(true);
-      // Fetch user's availability
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      const userData = userDoc.data() || {};
-      
-      // Initialize availability with default values if not present
-      if (userData.availability) {
-        setAvailability({
-          ...availability, // Keep default structure
-          ...userData.availability // Override with user data
-        });
-      }
+      // Fetch available matches from the API
+      const matches = await apiService.get('/api/matches');
+      setMatches(matches.filter(match => match.uid !== user.uid) || []);
 
-      // Fetch available matches
-      const matchesQuery = query(
-        collection(db, 'users'),
-        where('lookingForMatches', '==', true),
-        where('uid', '!=', user.uid)
-      );
-      const matchesSnapshot = await getDocs(matchesQuery);
-      setMatches(matchesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) || []);
-
-      // Fetch available brackets
-      const bracketsQuery = query(
-        collection(db, 'brackets'),
-        where('status', '==', 'open')
-      );
-      const bracketsSnapshot = await getDocs(bracketsQuery);
-      setBrackets(bracketsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) || []);
+      // Fetch available tournaments from the API
+      const tournaments = await apiService.get('/api/tournaments');
+      setBrackets(tournaments || []);
 
       // Set hasAvailability based on user data
-      setHasAvailability(!!userData.availability);
+      setHasAvailability(!!matches.find(m => m.uid === user.uid)?.availability);
     } catch (error) {
       console.error('Error fetching data:', error);
       setError('Failed to load data');
@@ -372,58 +346,17 @@ function Matchmaking() {
     setUserTimezone(event.target.value);
   };
 
-  const saveAvailability = async () => {
+  const handleAvailabilitySubmit = async () => {
     try {
-      // Convert slots to time ranges for storage
-      const formattedAvailability = Object.entries(availability).reduce((acc, [day, data]) => {
-        if (!data.available) {
-          acc[day] = { available: false, timeRanges: [] };
-          return acc;
-        }
-
-        const timeRanges = [];
-        let currentRange = null;
-
-        data.slots.forEach((isAvailable, index) => {
-          const hour = Math.floor(index / 4);
-          const minute = (index % 4) * 15;
-          const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-
-          if (isAvailable && !currentRange) {
-            currentRange = { start: time };
-          } else if (!isAvailable && currentRange) {
-            currentRange.end = time;
-            timeRanges.push(currentRange);
-            currentRange = null;
-          }
-        });
-
-        if (currentRange) {
-          currentRange.end = '24:00';
-          timeRanges.push(currentRange);
-        }
-
-        acc[day] = { available: true, timeRanges };
-        return acc;
-      }, {});
-
-      // Update user document with new availability
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        availability: formattedAvailability,
-        timezone: userTimezone,
-        lookingForMatches: true,
-        updatedAt: Timestamp.now(),
+      await apiService.post('/api/matches', {
+        userId: currentUser.uid,
+        availability,
       });
-
-      // Update local state
       setHasAvailability(true);
-      setError('');
-      
-      // Show success message
-      alert('Availability saved successfully!');
+      fetchUserData(currentUser);
     } catch (error) {
-      console.error('Error saving availability:', error);
-      setError('Failed to save availability. Please try again.');
+      console.error('Error updating availability:', error);
+      setError('Failed to update availability');
     }
   };
 
@@ -484,8 +417,8 @@ function Matchmaking() {
 
   const joinBracket = async (bracketId) => {
     try {
-      await updateDoc(doc(db, 'brackets', bracketId), {
-        participants: arrayUnion(currentUser.uid)
+      await apiService.post(`/api/tournaments/${bracketId}/join`, {
+        userId: currentUser.uid,
       });
       fetchUserData(currentUser);
     } catch (error) {
@@ -1379,7 +1312,7 @@ function Matchmaking() {
                   <Button
                     variant="contained"
                     sx={responsiveStyles.button}
-                    onClick={saveAvailability}
+                    onClick={handleAvailabilitySubmit}
                   >
                     Save Availability
                   </Button>
