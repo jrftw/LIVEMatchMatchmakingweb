@@ -7,141 +7,161 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-const {onRequest} = require("firebase-functions/v2/https");
+const functions = require("firebase-functions/v2");
 const admin = require("firebase-admin");
-const express = require("express");
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
 
 admin.initializeApp();
-const app = express();
 
-// Rate limiting to prevent abuse (100 requests per 15 minutes)
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: {error: "Too many requests, please try again later"},
-});
+const functionConfig = {
+  memory: "256MiB",
+  region: "us-central1",
+  maxInstances: 2,
+  cors: true,
+};
 
-// Apply rate limiting to all requests
-app.use(limiter);
-
-// Automatically allow cross-origin requests
-app.use(cors({origin: true}));
-
-// Basic health check endpoint (public)
-app.get("/api/health", (req, res) => {
+// Health check endpoint (public)
+exports.health = functions.https.onRequest(functionConfig, (req, res) => {
   res.json({status: "ok", version: "1.03 Build 1"});
 });
 
-// Add middleware to authenticate requests
-app.use(async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({error: "No authorization header"});
-    }
-    const token = authHeader.split("Bearer ")[1];
-    await admin.auth().verifyIdToken(token);
-    next();
-  } catch (error) {
-    console.error("Error verifying token:", error);
-    res.status(401).json({error: "Invalid token"});
+// Middleware to authenticate requests
+const authenticate = async (req) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    throw new Error("No authorization header");
   }
-});
+  const token = authHeader.split("Bearer ")[1];
+  return admin.auth().verifyIdToken(token);
+};
 
 // Matchmaking endpoints
-app.get("/api/matches", async (req, res) => {
-  try {
-    const matchesRef = admin.firestore().collection("users");
-    const snapshot = await matchesRef
-        .where("lookingForMatches", "==", true)
-        .get();
+exports.getMatches = functions.https.onRequest(
+    functionConfig,
+    async (req, res) => {
+      try {
+        await authenticate(req);
+        const matchesRef = admin.firestore().collection("users");
+        const snapshot = await matchesRef
+            .where("lookingForMatches", "==", true)
+            .get();
 
-    const matches = [];
-    snapshot.forEach((doc) => {
-      matches.push({
-        id: doc.id,
-        ...doc.data(),
-      });
-    });
+        const matches = [];
+        snapshot.forEach((doc) => {
+          matches.push({
+            id: doc.id,
+            ...doc.data(),
+          });
+        });
 
-    res.json(matches);
-  } catch (error) {
-    console.error("Error fetching matches:", error);
-    res.status(500).json({error: "Failed to fetch matches"});
-  }
-});
+        res.json(matches);
+      } catch (error) {
+        console.error("Error fetching matches:", error);
+        res.status(401).json({error: error.message});
+      }
+    },
+);
 
-app.post("/api/matches", async (req, res) => {
-  try {
-    const {userId, availability} = req.body;
-    await admin.firestore().collection("users").doc(userId).update({
-      availability,
-      lookingForMatches: true,
-    });
-    res.json({status: "success"});
-  } catch (error) {
-    console.error("Error updating match availability:", error);
-    res.status(500).json({error: "Failed to update availability"});
-  }
-});
+exports.updateMatch = functions.https.onRequest(
+    functionConfig,
+    async (req, res) => {
+      try {
+        await authenticate(req);
+        const {userId, availability} = req.body;
+        await admin.firestore().collection("users").doc(userId).update({
+          availability,
+          lookingForMatches: true,
+        });
+        res.json({status: "success"});
+      } catch (error) {
+        console.error("Error updating match availability:", error);
+        res.status(401).json({error: error.message});
+      }
+    },
+);
 
 // Tournament endpoints
-app.get("/api/tournaments", async (req, res) => {
-  try {
-    const tournamentsRef = admin.firestore().collection("brackets");
-    const snapshot = await tournamentsRef.get();
+exports.getTournaments = functions.https.onRequest(
+    functionConfig,
+    async (req, res) => {
+      try {
+        await authenticate(req);
+        const tournamentsRef = admin.firestore().collection("brackets");
+        const snapshot = await tournamentsRef.get();
 
-    const tournaments = [];
-    snapshot.forEach((doc) => {
-      tournaments.push({
-        id: doc.id,
-        ...doc.data(),
-      });
-    });
+        const tournaments = [];
+        snapshot.forEach((doc) => {
+          tournaments.push({
+            id: doc.id,
+            ...doc.data(),
+          });
+        });
 
-    res.json(tournaments);
-  } catch (error) {
-    console.error("Error fetching tournaments:", error);
-    res.status(500).json({error: "Failed to fetch tournaments"});
-  }
-});
+        res.json(tournaments);
+      } catch (error) {
+        console.error("Error fetching tournaments:", error);
+        res.status(401).json({error: error.message});
+      }
+    },
+);
 
-app.post("/api/tournaments", async (req, res) => {
-  try {
-    const tournamentData = req.body;
-    const docRef = await admin.firestore().collection("brackets").add({
-      ...tournamentData,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-    res.json({id: docRef.id, status: "success"});
-  } catch (error) {
-    console.error("Error creating tournament:", error);
-    res.status(500).json({error: "Failed to create tournament"});
-  }
-});
+exports.createTournament = functions.https.onRequest(
+    functionConfig,
+    async (req, res) => {
+      try {
+        await authenticate(req);
+        const {name, startTime, maxParticipants} = req.body;
+        const tournamentRef = await admin
+            .firestore()
+            .collection("brackets")
+            .add({
+              name,
+              startTime,
+              maxParticipants,
+              participants: [],
+              status: "open",
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        res.json({id: tournamentRef.id, status: "success"});
+      } catch (error) {
+        console.error("Error creating tournament:", error);
+        res.status(401).json({error: error.message});
+      }
+    },
+);
 
-app.post("/api/tournaments/:id/join", async (req, res) => {
-  try {
-    const {id} = req.params;
-    const {userId} = req.body;
+exports.joinTournament = functions.https.onRequest(
+    functionConfig,
+    async (req, res) => {
+      try {
+        await authenticate(req);
+        const {tournamentId, userId} = req.body;
+        const tournamentRef = admin
+            .firestore()
+            .collection("brackets")
+            .doc(tournamentId);
+        const tournament = await tournamentRef.get();
 
-    const tournamentRef = admin.firestore().collection("brackets").doc(id);
-    await tournamentRef.update({
-      participants: admin.firestore.FieldValue.arrayUnion(userId),
-    });
+        if (!tournament.exists) {
+          return res.status(404).json({error: "Tournament not found"});
+        }
 
-    res.json({status: "success"});
-  } catch (error) {
-    console.error("Error joining tournament:", error);
-    res.status(500).json({error: "Failed to join tournament"});
-  }
-});
+        const data = tournament.data();
+        if (data.participants.length >= data.maxParticipants) {
+          return res.status(400).json({error: "Tournament is full"});
+        }
 
-// Export the Express app as a Firebase Function with cost optimization
-exports.api = onRequest({
-  memory: "256MiB",
-  maxInstances: 2,
-  timeoutSeconds: 30,
-}, app);
+        if (data.participants.includes(userId)) {
+          return res.status(400).json({error: "Already joined"});
+        }
+
+        await tournamentRef.update({
+          participants: admin.firestore.FieldValue.arrayUnion(userId),
+        });
+
+        res.json({status: "success"});
+      } catch (error) {
+        console.error("Error joining tournament:", error);
+        res.status(401).json({error: error.message});
+      }
+    },
+);

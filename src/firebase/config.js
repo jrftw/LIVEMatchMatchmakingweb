@@ -12,7 +12,7 @@ const firebaseConfig = {
   projectId: "live-match---matchmaking",
   storageBucket: "live-match---matchmaking.firebasestorage.app",
   messagingSenderId: "615425120469",
-  appId: "1:615425120469:web:47d48776be50bac7aaea5c",
+  appId: "1:615425120469:web:a73b2913b9bface2aaea5c",
   measurementId: "G-V1B9CVF398"
 };
 
